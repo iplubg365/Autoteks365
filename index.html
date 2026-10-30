@@ -2,6 +2,15 @@
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LED Scroller</title>
+<meta name="theme-color" content="#0b0b0c">
+<meta name="description" content="Teks berjalan LED fullscreen">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LED Scroller">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{--bg:#0b0b0c;--card:#1f2023;--fg:#f2f2f3;--mut:#9a9aa0;--acc:#ff2a5f;--btn:#34353a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}
@@ -25,6 +34,8 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:4px 0 18px}
 #full canvas{width:100%;height:100%;display:block}
 #full.on{display:block}
 #hint{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:#666;font-size:12px;z-index:10;display:none}
+#install{display:none;width:100%;margin-top:12px;padding:13px;border:1px solid var(--acc);border-radius:28px;background:transparent;color:var(--acc);font-size:15px;font-weight:700}
+#iosTip{display:none;margin-top:12px;padding:12px;border-radius:12px;background:var(--card);color:var(--mut);font-size:13px;line-height:1.5;text-align:center}
 </style></head><body>
 <h1>LED SCROLLER</h1>
 <canvas id="prev"></canvas>
@@ -41,6 +52,8 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:4px 0 18px}
     <div class="cols" id="cols"></div>
   </div>
   <button id="go">▶ MULAI</button>
+  <button id="install">⬇ Install Aplikasi</button>
+  <div id="iosTip">Di iPhone: ketuk tombol <b>Bagikan</b> lalu pilih <b>Tambah ke Layar Utama</b>.</div>
 </div>
 <div id="full"><canvas id="fc"></canvas></div>
 <div id="hint">Ketuk layar untuk kembali</div>
@@ -93,5 +106,14 @@ $("#go").onclick=async()=>{
 };
 $("#full").onclick=()=>{$("#full").classList.remove("on");$("#hint").style.display="none";try{screen.orientation.unlock();document.exitFullscreen()}catch(e){}};
 build();requestAnimationFrame(tick);
+
+// ---- PWA: service worker + tombol install ----
+if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+const standalone=matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||navigator.standalone;
+let deferred=null;
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;if(!standalone)$("#install").style.display="block"});
+$("#install").onclick=async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice;deferred=null;$("#install").style.display="none"};
+addEventListener("appinstalled",()=>{$("#install").style.display="none"});
+if(!standalone&&/iphone|ipad|ipod/i.test(navigator.userAgent))$("#iosTip").style.display="block";
 </script>
 </body></html>
