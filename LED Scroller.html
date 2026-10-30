@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LED Scroller</title>
+<style>
+:root{--bg:#0b0b0c;--card:#1f2023;--fg:#f2f2f3;--mut:#9a9aa0;--acc:#ff2a5f;--btn:#34353a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1{font:italic 900 18px "Arial Black",Impact,sans-serif;letter-spacing:.5px;margin:0;padding:14px 16px}
+#prev{display:block;width:100%;height:110px;background:#000}
+.wrap{max-width:520px;margin:0 auto;padding:16px}
+input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid #bbb;background:transparent;color:var(--fg);font-size:16px}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-top:16px}
+.card h3{margin:0 0 10px;font-size:15px}
+.seg{display:flex;gap:8px;margin-bottom:18px}
+.seg button{flex:1;padding:10px;border:0;border-radius:10px;background:var(--btn);color:var(--fg);font-size:16px}
+.seg button.on{background:var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc);margin:4px 0 18px}
+.val{float:right;color:var(--mut);font-size:13px}
+.cols{display:flex;gap:10px}
+.cols button{width:34px;height:34px;border-radius:50%;border:2px solid transparent}
+.cols button.on{border-color:#fff}
+#go{width:100%;margin-top:16px;padding:15px;border:0;border-radius:28px;background:var(--acc);color:#fff;font-size:17px;font-weight:700}
+#full{position:fixed;inset:0;background:#000;display:none;z-index:9}
+#full canvas{width:100%;height:100%;display:block}
+#full.on{display:block}
+#hint{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:#666;font-size:12px;z-index:10;display:none}
+</style></head><body>
+<h1>LED SCROLLER</h1>
+<canvas id="prev"></canvas>
+<div class="wrap">
+  <input type="text" id="txt" placeholder="Masukkan teks" value="Halo Dunia!" maxlength="200">
+  <div class="card">
+    <h3>Arah Gulir</h3>
+    <div class="seg" id="dir"><button data-d="-1" class="on">‹</button><button data-d="0">❚❚</button><button data-d="1">›</button></div>
+    <h3>Kecepatan Berkedip <span class="val" id="bv">Off</span></h3>
+    <input type="range" id="blink" min="0" max="10" value="0">
+    <h3>Kecepatan Gulir <span class="val" id="sv">1x</span></h3>
+    <input type="range" id="spd" min="1" max="30" value="10">
+    <h3>Warna LED</h3>
+    <div class="cols" id="cols"></div>
+  </div>
+  <button id="go">▶ MULAI</button>
+</div>
+<div id="full"><canvas id="fc"></canvas></div>
+<div id="hint">Ketuk layar untuk kembali</div>
+<script>
+const $=s=>document.querySelector(s);
+const S={dir:-1,blink:0,spd:1,color:"#19d219"};
+const COLORS=["#19d219","#ff3b3b","#ffd21f","#2ec5ff","#ffffff","#ff4fd8"];
+let bmp=null,off=0,last=0,running=false;
+COLORS.forEach((c,i)=>{const b=document.createElement("button");b.style.background=c;if(!i)b.className="on";b.onclick=()=>{S.color=c;document.querySelectorAll("#cols button").forEach(x=>x.classList.remove("on"));b.classList.add("on")};$("#cols").appendChild(b)});
+document.querySelectorAll("#dir button").forEach(b=>b.onclick=()=>{S.dir=+b.dataset.d;document.querySelectorAll("#dir button").forEach(x=>x.classList.remove("on"));b.classList.add("on")});
+$("#blink").oninput=e=>{S.blink=e.target.value/10*3;$("#bv").textContent=e.target.value==0?"Off":(e.target.value/10*3).toFixed(1)+"x"};
+$("#spd").oninput=e=>{S.spd=e.target.value/10;$("#sv").textContent=S.spd.toFixed(1)+"x"};
+const ROWS=14;
+function build(){
+  const t=$("#txt").value||" ";
+  const c=document.createElement("canvas"),x=c.getContext("2d",{willReadFrequently:true});
+  const f=`900 ${ROWS*0.92}px "Arial Black",Arial,sans-serif`;
+  x.font=f;const w=Math.ceil(x.measureText(t).width)+2;
+  c.width=w;c.height=ROWS;x.font=f;x.fillStyle="#fff";x.textBaseline="middle";x.fillText(t,1,ROWS/2+1);
+  const d=x.getImageData(0,0,w,ROWS).data;
+  bmp={w,d};
+}
+function size(cv){const r=devicePixelRatio||1;cv.width=cv.clientWidth*r;cv.height=cv.clientHeight*r}
+function draw(cv,rows){
+  const g=cv.getContext("2d");g.fillStyle="#000";g.fillRect(0,0,cv.width,cv.height);
+  const cell=cv.height/rows,cols=Math.ceil(cv.width/cell),gap=6,per=bmp.w+gap;
+  const on=S.blink===0||Math.floor(performance.now()/1000*S.blink)%2===0;
+  const off0=Math.floor(off),rad=cell*0.38,pad=(cv.height-cell*ROWS)/2;
+  for(let cx=0;cx<cols;cx++){
+    const sx=(((cx+off0)%per)+per)%per;
+    for(let ry=0;ry<ROWS;ry++){
+      const lit=sx<bmp.w&&bmp.d[(ry*bmp.w+sx)*4+3]>110;
+      g.globalAlpha=lit&&on?1:0.12;
+      g.fillStyle=lit&&on?S.color:"#3a3a3a";
+      g.beginPath();g.arc(cx*cell+cell/2,pad+ry*cell+cell/2,rad,0,7);g.fill();
+    }
+  }
+  g.globalAlpha=1;
+}
+function tick(t){
+  const dt=Math.min((t-last)/1000,.1);last=t;
+  off+=-S.dir*S.spd*14*dt;
+  if(bmp){size($("#prev"));draw($("#prev"),ROWS);if($("#full").classList.contains("on")){size($("#fc"));draw($("#fc"),ROWS+4)}}
+  requestAnimationFrame(tick);
+}
+$("#txt").oninput=()=>{build();off=0};
+$("#go").onclick=async()=>{
+  build();$("#full").classList.add("on");$("#hint").style.display="block";setTimeout(()=>$("#hint").style.display="none",2500);
+  try{await document.documentElement.requestFullscreen();await screen.orientation.lock("landscape")}catch(e){}
+};
+$("#full").onclick=()=>{$("#full").classList.remove("on");$("#hint").style.display="none";try{screen.orientation.unlock();document.exitFullscreen()}catch(e){}};
+build();requestAnimationFrame(tick);
+</script>
+</body></html>
