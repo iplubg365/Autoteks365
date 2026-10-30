@@ -1,7 +1,7 @@
 {
-  "name": "LED Scroller",
-  "short_name": "LED Scroller",
-  "description": "Teks berjalan LED fullscreen untuk konser, demo, dan pengumuman.",
+  "name": "Autoteks365",
+  "short_name": "Autoteks365",
+  "description": "Autoteks365 - teks berjalan LED fullscreen.",
   "lang": "id",
   "start_url": "./",
   "scope": "./",
